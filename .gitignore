@@ -1,0 +1,31 @@
+# Node
+node_modules/
+
+# Hardhat
+cache/
+artifacts/
+
+# Typechain
+types/
+typechain/
+
+# Exports
+exports/
+
+# Env
+.env
+
+# Coverage
+coverage/
+coverage.json
+
+# Temp/local stuff that shouldn't be pushed
+local/
+
+tenderly.yaml
+
+# solidity v0.6.12
+soljson-v0.6.12+commit.27d51765.js
+
+.idea
+.openzeppelin
