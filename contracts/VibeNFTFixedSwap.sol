@@ -16,8 +16,8 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint    internal constant TypeErc721            = 0;
-    uint    internal constant TypeErc1155           = 1;
+    uint internal constant TypeErc721 = 0;
+    uint internal constant TypeErc1155 = 1;
 
     struct Pool {
         // address of pool creator
@@ -171,25 +171,19 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         // transfer amount of token1 to creator
-        (uint platformFee, uint royaltyFee, uint _actualAmount1) = IRoyaltyConfig(getFeeConfigContract())
-            .getFeeAndRemaining(pools[index].token0, amount1);
-        uint totalFee = platformFee.add(royaltyFee);
-
+        uint royalty = IRoyaltyConfig(getFeeConfigContract()).calculateRoyalty(amount1);
+        uint _actualAmount1 = amount1.sub(royalty);
         if (pool.token1 == address(0)) {
             require(amount1 == msg.value, "invalid ETH amount");
             if (_actualAmount1 > 0) {
                 // transfer ETH to creator
                 payable(pool.creator).transfer(_actualAmount1);
             }
-            IRoyaltyConfig(getFeeConfigContract())
-                .chargeFeeETH{value: totalFee}(pools[index].token0, platformFee, royaltyFee);
+            IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyETH{value: royalty}(royalty);
         } else {
             // transfer token1 to creator
             IERC20Upgradeable(pool.token1).safeTransferFrom(msg.sender, pool.creator, _actualAmount1);
-            IERC20Upgradeable(pool.token1).safeTransferFrom(msg.sender, address(this), totalFee);
-            IERC20Upgradeable(pool.token1).safeApprove(getFeeConfigContract(), totalFee);
-            IRoyaltyConfig(getFeeConfigContract())
-                .chargeFeeToken(pools[index].token0, pools[index].token1, address(this), platformFee, royaltyFee);
+            IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyERC20(pools[index].token1, msg.sender, royalty);
         }
 
         // transfer tokenId of token0 to sender

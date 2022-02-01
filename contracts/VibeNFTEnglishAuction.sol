@@ -16,8 +16,8 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
     using SafeMathUpgradeable for uint256;
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint    internal constant TypeErc721                = 0;
-    uint    internal constant TypeErc1155               = 1;
+    uint internal constant TypeErc721 = 0;
+    uint internal constant TypeErc1155 = 1;
 
     struct Pool {
         // address of pool creator
@@ -286,21 +286,18 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         Pool memory pool = pools[index];
         uint amount1 = currentBidderAmount1P[index];
         if (currentBidderP[index] != address(0) && amount1 >= reserveAmount1P[index]) {
-            (uint platformFee, uint royaltyFee, uint _actualAmount1) = IRoyaltyConfig(getFeeConfigContract())
-                .getFeeAndRemaining(pools[index].token0, amount1);
-            uint totalFee = platformFee.add(royaltyFee);
+            uint royalty = IRoyaltyConfig(getFeeConfigContract()).calculateRoyalty(amount1);
+            uint _actualAmount1 = amount1.sub(royalty);
             if (pool.token1 == address(0)) {
                 // transfer ETH to creator
                 if (_actualAmount1 > 0) {
                     payable(pool.creator).transfer(_actualAmount1);
                 }
-                IRoyaltyConfig(getFeeConfigContract())
-                    .chargeFeeETH{value: totalFee}(pools[index].token0, platformFee, royaltyFee);
+                IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyETH{value: royalty}(royalty);
             } else {
                 IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, _actualAmount1);
-                IERC20Upgradeable(pool.token1).safeApprove(getFeeConfigContract(), totalFee);
-                IRoyaltyConfig(getFeeConfigContract())
-                    .chargeFeeToken(pools[index].token0, pools[index].token1, address(this), platformFee, royaltyFee);
+                IERC20Upgradeable(pool.token1).safeApprove(getFeeConfigContract(), royalty);
+                IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyERC20(pools[index].token1, address(this), royalty);
             }
             emit CreatorClaimed(pool.creator, index, pool.tokenId, 0, amount1);
         } else {

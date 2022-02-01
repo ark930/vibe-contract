@@ -206,7 +206,6 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 }
                 if (txFee > 0) {
                     // deposit transaction fee to staking contract
-//                    IBounceStake(getStakeContract()).depositReward{value: txFee}();
                 }
             } else {
                 IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, amount1);

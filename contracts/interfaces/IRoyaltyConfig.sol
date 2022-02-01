@@ -3,9 +3,9 @@
 pragma solidity ^0.8.0;
 
 interface IRoyaltyConfig {
-    function getFeeAndRemaining(address brand, uint amount) external view returns (uint platformFee, uint royaltyFee, uint remaining);
+    function calculateRoyalty(uint amount) external view returns (uint);
 
-    function chargeFeeETH(address brand, uint platformFee, uint royaltyFee) external payable;
+    function chargeRoyaltyETH(uint royalty) external payable;
 
-    function chargeFeeToken(address brand, address token, address from, uint platformFee, uint royaltyFee) external;
+    function chargeRoyaltyERC20(address token, address from, uint royalty) external;
 }
