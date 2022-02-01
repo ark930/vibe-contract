@@ -116,7 +116,7 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint openAt,
         uint nftType
     ) private {
-//        require(tx.origin == msg.sender, "disallow contract caller");
+        require(tx.origin == msg.sender, "disallow contract caller");
         require(amountTotal1 != 0, "the value of amountTotal1 is zero.");
         require(bytes(name).length <= 32, "the length of name is too long");
 
@@ -153,7 +153,7 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isPoolExist(index)
         isPoolNotSwap(index)
     {
-//        require(tx.origin == msg.sender, "disallow contract caller");
+        require(tx.origin == msg.sender, "disallow contract caller");
         require(!creatorCanceledP[index], "creator has canceled this pool");
 
         Pool storage pool = pools[index];

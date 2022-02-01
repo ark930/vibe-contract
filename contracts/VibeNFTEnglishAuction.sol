@@ -162,9 +162,7 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         // NFT token type
         uint nftType
     ) private {
-        address creator = msg.sender;
-
-//        require(tx.origin == msg.sender, "disallow contract caller");
+        require(tx.origin == msg.sender, "disallow contract caller");
         require(tokenAmount0 != 0, "invalid tokenAmount0");
         require(amountReserve1 == 0 || amountReserve1 >= amountMin1, "invalid amountReserve1");
         require(amountMax1 == 0 || (amountMax1 >= amountReserve1 && amountMax1 >= amountMin1), "invalid amountMax1");
@@ -174,14 +172,14 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
 
         // transfer tokenId of token0 to this contract
         if (nftType == TypeErc721) {
-            IERC721Upgradeable(token0).safeTransferFrom(creator, address(this), tokenId);
+            IERC721Upgradeable(token0).safeTransferFrom(msg.sender, address(this), tokenId);
         } else {
-            IERC1155Upgradeable(token0).safeTransferFrom(creator, address(this), tokenId, tokenAmount0, "");
+            IERC1155Upgradeable(token0).safeTransferFrom(msg.sender, address(this), tokenId, tokenAmount0, "");
         }
 
         // creator pool
         Pool memory pool;
-        pool.creator = creator;
+        pool.creator = msg.sender;
         pool.name = name;
         pool.token0 = token0;
         pool.token1 = token1;
@@ -213,11 +211,9 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         isPoolExist(index)
         isPoolNotClosed(index)
     {
-        address sender = msg.sender;
-
         Pool storage pool = pools[index];
-//        require(tx.origin == msg.sender, "disallow contract caller");
-        require(pool.creator != sender, "creator can't bid the pool created by self");
+        require(tx.origin == msg.sender, "disallow contract caller");
+        require(pool.creator != msg.sender, "creator can't bid the pool created by self");
         require(pool.openAt <= block.timestamp, "pool is not open");
         require(amount1 != 0, "invalid amount1");
         require(amount1 >= pool.amountMin1, "the bid amount is lower than minimum bidder amount");
@@ -226,7 +222,7 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         if (pool.token1 == address(0)) {
             require(amount1 == msg.value, "invalid ETH amount");
         } else {
-            IERC20Upgradeable(pool.token1).safeTransferFrom(sender, address(this), amount1);
+            IERC20Upgradeable(pool.token1).safeTransferFrom(msg.sender, address(this), amount1);
         }
 
         // return ETH to previous bidder
@@ -239,16 +235,16 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         }
 
         // record new winner
-        currentBidderP[index] = sender;
+        currentBidderP[index] = msg.sender;
         currentBidderAmount1P[index] = amount1;
         bidCountP[index] = bidCountP[index] + 1;
-        myBidderAmount1P[sender][index] = amount1;
+        myBidderAmount1P[msg.sender][index] = amount1;
 
-        emit Bid(sender, index, amount1);
+        emit Bid(msg.sender, index, amount1);
 
         if (pool.amountMax1 > 0 && pool.amountMax1 <= amount1) {
             _creatorClaim(index);
-            _bidderClaim(sender, index);
+            _bidderClaim(msg.sender, index);
         }
     }
 

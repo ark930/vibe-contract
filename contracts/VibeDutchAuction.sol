@@ -149,7 +149,6 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isPoolExist(index)
         isPoolNotClosed(index)
     {
-        address sender = msg.sender;
         require(tx.origin == msg.sender, "disallow contract caller");
         Pool memory pool = pools[index];
         require(pool.openAt <= block.timestamp, "pool not open");
@@ -170,12 +169,12 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (token1 == address(0)) {
             require(amount1 == msg.value, "invalid ETH amount");
         } else {
-            IERC20Upgradeable(token1).safeTransferFrom(sender, address(this), amount1);
+            IERC20Upgradeable(token1).safeTransferFrom(msg.sender, address(this), amount1);
         }
 
-        _swap(sender, index, amount0, amount1);
+        _swap(msg.sender, index, amount0, amount1);
 
-        emit Bid(index, sender, amount0, amount1);
+        emit Bid(index, msg.sender, amount0, amount1);
     }
 
     function creatorClaim(uint index) external
@@ -183,20 +182,19 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isPoolExist(index)
         isPoolClosed(index)
     {
-        address creator = msg.sender;
-        require(isCreator(creator, index), "sender is not pool creator");
+        require(isCreator(msg.sender, index), "sender is not pool creator");
         require(!creatorClaimedP[index], "creator has claimed this pool");
         creatorClaimedP[index] = true;
 
         // remove ownership of this pool from creator
-        delete myCreatedP[creator];
+        delete myCreatedP[msg.sender];
 
         // calculate un-filled amount0
         Pool memory pool = pools[index];
         uint unFilledAmount0 = pool.amountTotal0.sub(amountSwap0P[index]);
         if (unFilledAmount0 > 0) {
             // transfer un-filled amount of token0 back to creator
-            IERC20Upgradeable(pool.token0).safeTransfer(creator, unFilledAmount0);
+            IERC20Upgradeable(pool.token0).safeTransfer(pool.creator, unFilledAmount0);
         }
 
         // send token1 to creator
@@ -217,7 +215,7 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             }
         }
 
-        emit Claimed(index, creator, unFilledAmount0);
+        emit Claimed(index, pool.creator, unFilledAmount0);
     }
 
     function bidderClaim(uint index) external

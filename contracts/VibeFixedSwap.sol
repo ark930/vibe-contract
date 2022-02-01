@@ -129,7 +129,6 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isPoolExist(index)
         isPoolNotClosed(index)
     {
-        address sender = msg.sender;
         require(tx.origin == msg.sender, "disallow contract caller");
         Pool memory pool = pools[index];
 
@@ -154,14 +153,14 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         amountSwap0P[index] = amountSwap0P[index].add(_amount0);
         amountSwap1P[index] = amountSwap1P[index].add(_amount1);
-        myAmountSwapped0[sender][index] = myAmountSwapped0[sender][index].add(_amount0);
+        myAmountSwapped0[msg.sender][index] = myAmountSwapped0[msg.sender][index].add(_amount0);
         // check if swapped amount of token1 is exceeded maximum allowance
         if (maxAmount1PerWalletP[index] != 0) {
             require(
-                myAmountSwapped1[sender][index].add(_amount1) <= maxAmount1PerWalletP[index],
+                myAmountSwapped1[msg.sender][index].add(_amount1) <= maxAmount1PerWalletP[index],
                 "swapped amount of token1 is exceeded maximum allowance"
             );
-            myAmountSwapped1[sender][index] = myAmountSwapped1[sender][index].add(_amount1);
+            myAmountSwapped1[msg.sender][index] = myAmountSwapped1[msg.sender][index].add(_amount1);
         }
 
         if (pool.amountTotal1 == amountSwap1P[index]) {
@@ -172,21 +171,21 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (pool.token1 == address(0)) {
             require(msg.value == amount1, "invalid amount of ETH");
         } else {
-            IERC20Upgradeable(pool.token1).safeTransferFrom(sender, address(this), amount1);
+            IERC20Upgradeable(pool.token1).safeTransferFrom(msg.sender, address(this), amount1);
         }
 
         if (pool.claimAt == 0) {
             if (_amount0 > 0) {
-                // send token0 to sender
-                IERC20Upgradeable(pool.token0).safeTransfer(sender, _amount0);
+                // send token0 to msg.sender
+                IERC20Upgradeable(pool.token0).safeTransfer(msg.sender, _amount0);
             }
         }
         if (excessAmount1 > 0) {
-            // send excess amount of token1 back to sender
+            // send excess amount of token1 back to msg.sender
             if (pool.token1 == address(0)) {
-                payable(sender).transfer(excessAmount1);
+                payable(msg.sender).transfer(excessAmount1);
             } else {
-                IERC20Upgradeable(pool.token1).safeTransfer(sender, excessAmount1);
+                IERC20Upgradeable(pool.token1).safeTransfer(msg.sender, excessAmount1);
             }
         }
 
@@ -203,7 +202,7 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             royaltyContract.chargeRoyaltyERC20(pool.token1, address(this), royalty);
         }
 
-        emit Swapped(index, sender, _amount0, _actualAmount1, royalty);
+        emit Swapped(index, msg.sender, _amount0, _actualAmount1, royalty);
     }
 
     function creatorClaim(uint index) external
@@ -229,14 +228,13 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isClaimReady(index)
     {
         Pool memory pool = pools[index];
-        address sender = msg.sender;
-        require(!myClaimed[sender][index], "claimed");
-        myClaimed[sender][index] = true;
-        if (myAmountSwapped0[sender][index] > 0) {
-            // send token0 to sender
-            IERC20Upgradeable(pool.token0).safeTransfer(msg.sender, myAmountSwapped0[sender][index]);
+        require(!myClaimed[msg.sender][index], "claimed");
+        myClaimed[msg.sender][index] = true;
+        if (myAmountSwapped0[msg.sender][index] > 0) {
+            // send token0 to msg.sender
+            IERC20Upgradeable(pool.token0).safeTransfer(msg.sender, myAmountSwapped0[msg.sender][index]);
         }
-        emit UserClaimed(index, sender, myAmountSwapped0[sender][index]);
+        emit UserClaimed(index, msg.sender, myAmountSwapped0[msg.sender][index]);
     }
 
     function getPoolCount() public view returns (uint) {
