@@ -10,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 
-import "./interfaces/IRoyaltyConfig.sol";
+import "./interfaces/IRoyalty.sol";
 
 contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint;
@@ -40,6 +40,7 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint openAt;
     }
 
+    address public royaltyAddress;
     Pool[] public pools;
 
     // creator address => pool index => whether the account create the pool.
@@ -53,8 +54,6 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(uint => uint) public swappedAmount0P;
     // pool index => swapped amount of token1
     mapping(uint => uint) public swappedAmount1P;
-
-    uint public totalTxFee;
 
     event Created(address indexed sender, uint indexed index, Pool pool);
     event Canceled(address indexed sender, uint indexed index, uint unswappedAmount0);
@@ -171,7 +170,8 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         // transfer amount of token1 to creator
-        uint royalty = IRoyaltyConfig(getFeeConfigContract()).calculateRoyalty(amount1);
+        IRoyalty royaltyContract = IRoyalty(royaltyAddress);
+        uint royalty = royaltyContract.calculateRoyalty(amount1);
         uint _actualAmount1 = amount1.sub(royalty);
         if (pool.token1 == address(0)) {
             require(amount1 == msg.value, "invalid ETH amount");
@@ -179,11 +179,11 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 // transfer ETH to creator
                 payable(pool.creator).transfer(_actualAmount1);
             }
-            IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyETH{value: royalty}(royalty);
+            royaltyContract.chargeRoyaltyETH{value: royalty}(royalty);
         } else {
             // transfer token1 to creator
             IERC20Upgradeable(pool.token1).safeTransferFrom(msg.sender, pool.creator, _actualAmount1);
-            IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyERC20(pools[index].token1, msg.sender, royalty);
+            royaltyContract.chargeRoyaltyERC20(pools[index].token1, msg.sender, royalty);
         }
 
         // transfer tokenId of token0 to sender
@@ -212,11 +212,6 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         emit Canceled(msg.sender, index, pool.amountTotal0.sub(swappedAmount0P[index]));
-    }
-
-    function withdrawFee(address payable to, uint amount) external onlyOwner {
-        totalTxFee = totalTxFee.sub(amount);
-        to.transfer(amount);
     }
 
     function isCreator(address target, uint index) internal view returns (bool) {

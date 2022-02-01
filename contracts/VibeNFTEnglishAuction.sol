@@ -10,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 
-import "./interfaces/IRoyaltyConfig.sol";
+import "./interfaces/IRoyalty.sol";
 
 contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint256;
@@ -46,6 +46,7 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         uint nftType;
     }
 
+    address public royaltyAddress;
     Pool[] public pools;
 
     // pool index => a flag that if creator is claimed the pool
@@ -67,7 +68,6 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
     // pool index => bid count
     mapping(uint => uint) public bidCountP;
 
-    uint public totalTxFee;
     // pool index => a flag whether pool has been cancelled
     mapping(uint => bool) public creatorCanceledP;
 
@@ -286,18 +286,19 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         Pool memory pool = pools[index];
         uint amount1 = currentBidderAmount1P[index];
         if (currentBidderP[index] != address(0) && amount1 >= reserveAmount1P[index]) {
-            uint royalty = IRoyaltyConfig(getFeeConfigContract()).calculateRoyalty(amount1);
+            IRoyalty royaltyContract = IRoyalty(royaltyAddress);
+            uint royalty = royaltyContract.calculateRoyalty(amount1);
             uint _actualAmount1 = amount1.sub(royalty);
             if (pool.token1 == address(0)) {
                 // transfer ETH to creator
                 if (_actualAmount1 > 0) {
                     payable(pool.creator).transfer(_actualAmount1);
                 }
-                IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyETH{value: royalty}(royalty);
+                royaltyContract.chargeRoyaltyETH{value: royalty}(royalty);
             } else {
                 IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, _actualAmount1);
-                IERC20Upgradeable(pool.token1).safeApprove(getFeeConfigContract(), royalty);
-                IRoyaltyConfig(getFeeConfigContract()).chargeRoyaltyERC20(pools[index].token1, address(this), royalty);
+                IERC20Upgradeable(pool.token1).safeApprove(royaltyAddress, royalty);
+                royaltyContract.chargeRoyaltyERC20(pools[index].token1, address(this), royalty);
             }
             emit CreatorClaimed(pool.creator, index, pool.tokenId, 0, amount1);
         } else {
@@ -317,15 +318,6 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
         isPoolClosed(index)
     {
         _bidderClaim(msg.sender, index);
-    }
-
-    function withdrawFee(address payable to, uint amount) external onlyOwner {
-        totalTxFee = totalTxFee.sub(amount);
-        to.transfer(amount);
-    }
-
-    function withdrawToken(address token, address to, uint amount) external onlyOwner {
-        IERC20Upgradeable(token).safeTransfer(to, amount);
     }
 
     function _bidderClaim(address sender, uint index) private {
@@ -385,11 +377,6 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
             return true;
         }
         return false;
-    }
-
-    function getFeeConfigContract() public view returns (address) {
-        // TODO
-        return address(this);
     }
 
     modifier isPoolClosed(uint index) {

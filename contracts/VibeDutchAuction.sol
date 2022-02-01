@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 
+import "./interfaces/IRoyalty.sol";
+
 contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint256;
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -62,6 +64,7 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint closeAt;
     }
 
+    address public royaltyAddress;
     Pool[] public pools;
 
     // pool index => amount of sell token has been swap
@@ -198,17 +201,18 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // send token1 to creator
         uint amount1 = lowestBidPrice[index].mul(amountSwap0P[index]).div(1 ether);
         if (amount1 > 0) {
+            IRoyalty royaltyContract = IRoyalty(royaltyAddress);
+            uint royalty = royaltyContract.calculateRoyalty(amount1);
+            uint _actualAmount1 = amount1.sub(royalty);
             if (pool.token1 == address(0)) {
-                uint256 txFee = amount1.mul(getTxFeeRate()).div(1 ether);
-                uint256 _actualAmount1 = amount1.sub(txFee);
                 if (_actualAmount1 > 0) {
                     payable(pool.creator).transfer(_actualAmount1);
                 }
-                if (txFee > 0) {
-                    // deposit transaction fee to staking contract
-                }
+                royaltyContract.chargeRoyaltyETH{value: royalty}(royalty);
             } else {
-                IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, amount1);
+                IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, _actualAmount1);
+                IERC20Upgradeable(pool.token1).safeApprove(royaltyAddress, royalty);
+                royaltyContract.chargeRoyaltyERC20(pool.token1, address(this), royalty);
             }
         }
 
@@ -311,10 +315,6 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function getPoolCount() public view returns (uint) {
         return pools.length;
-    }
-
-    function getTxFeeRate() public view returns (uint) {
-        return 0.05 ether;
     }
 
     modifier isPoolClosed(uint index) {

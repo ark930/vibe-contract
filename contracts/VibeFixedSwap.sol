@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 
+import "./interfaces/IRoyalty.sol";
+
 contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMathUpgradeable for uint;
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -53,6 +55,7 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint claimAt;
     }
 
+    address public royaltyAddress;
     Pool[] public pools;
 
     // pool index => the timestamp which the pool filled at
@@ -74,12 +77,9 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // user address => pool index => whether or not my pool has been claimed
     mapping(address => mapping(uint => bool)) public myClaimed;
 
-    // pool index => transaction fee
-    mapping(uint => uint) public txFeeP;
-
     event Created(uint indexed index, address indexed sender, Pool pool);
-    event Swapped(uint indexed index, address indexed sender, uint amount0, uint amount1, uint txFee);
-    event Claimed(uint indexed index, address indexed sender, uint amount0, uint txFee);
+    event Swapped(uint indexed index, address indexed sender, uint amount0, uint amount1, uint royalty);
+    event Claimed(uint indexed index, address indexed sender, uint amount0);
     event UserClaimed(uint indexed index, address indexed sender, uint amount0);
 
     function initialize() public initializer {
@@ -192,18 +192,19 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         // send token1 to creator
-        uint256 txFee = 0;
-        uint256 _actualAmount1 = _amount1;
+        IRoyalty royaltyContract = IRoyalty(royaltyAddress);
+        uint royalty = royaltyContract.calculateRoyalty(amount1);
+        uint _actualAmount1 = amount1.sub(royalty);
         if (pool.token1 == address(0)) {
-            txFee = _amount1.mul(getTxFeeRate()).div(1 ether);
-            txFeeP[index] += txFee;
-            _actualAmount1 = _amount1.sub(txFee);
             payable(pool.creator).transfer(_actualAmount1);
+            royaltyContract.chargeRoyaltyETH{value: royalty}(royalty);
         } else {
             IERC20Upgradeable(pool.token1).safeTransfer(pool.creator, _actualAmount1);
+            IERC20Upgradeable(pool.token1).safeApprove(royaltyAddress, royalty);
+            royaltyContract.chargeRoyaltyERC20(pool.token1, address(this), royalty);
         }
 
-        emit Swapped(index, sender, _amount0, _actualAmount1, txFee);
+        emit Swapped(index, sender, _amount0, _actualAmount1, royalty);
     }
 
     function creatorClaim(uint index) external
@@ -215,21 +216,12 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(!creatorClaimed[pool.creator][index], "claimed");
         creatorClaimed[pool.creator][index] = true;
 
-        if (txFeeP[index] > 0) {
-            if (pool.token1 == address(0)) {
-                // deposit transaction fee to staking contract
-//                payable(getStakeContract()).transfer(txFeeP[index]);
-            } else {
-//                IERC20Upgradeable(pool.token1).safeTransfer(getStakeContract(), txFeeP[index]);
-            }
-        }
-
         uint unSwapAmount0 = pool.amountTotal0.sub(amountSwap0P[index]);
         if (unSwapAmount0 > 0) {
             IERC20Upgradeable(pool.token0).safeTransfer(pool.creator, unSwapAmount0);
         }
 
-        emit Claimed(index, msg.sender, unSwapAmount0, txFeeP[index]);
+        emit Claimed(index, msg.sender, unSwapAmount0);
     }
 
     function userClaim(uint index) external
@@ -251,14 +243,6 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     function getPoolCount() public view returns (uint) {
         return pools.length;
     }
-
-    function getTxFeeRate() public view returns (uint) {
-        return 0.05 ether;
-    }
-
-//    function getStakeContract() public view returns (address) {
-//        return address(config[StakeContract]);
-//    }
 
     modifier isPoolClosed(uint index) {
         require(pools[index].closeAt <= block.timestamp, "this pool is not closed");
