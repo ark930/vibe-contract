@@ -33,7 +33,7 @@ contract VibeRoyalty is OwnableUpgradeable {
 
     function chargeRoyaltyETH(uint royalty) external payable {
         if (royalty > 0) {
-            require(royalty == msg.value, "invalid msg.value");
+            require(royalty == msg.value, "Mismatch royalty and msg.value");
             if (address(this) != royaltyReceiver) {
                 payable(royaltyReceiver).transfer(royalty);
             }
@@ -59,12 +59,12 @@ contract VibeRoyalty is OwnableUpgradeable {
     }
 
     function withdrawETH(address payable to, uint amount) external onlyOwner {
-        require(address(this).balance >= amount, "INSUFFICIENT AMOUNT");
+        require(address(this).balance >= amount, "Insufficient amount");
         to.transfer(amount);
     }
 
     function withdrawERC20(address token, address to, uint amount) external onlyOwner {
-        require(IERC20Upgradeable(token).balanceOf(address(this)) >= amount, "INSUFFICIENT AMOUNT");
+        require(IERC20Upgradeable(token).balanceOf(address(this)) >= amount, "Insufficient amount");
         IERC20Upgradeable(token).safeTransfer(to, amount);
     }
 }

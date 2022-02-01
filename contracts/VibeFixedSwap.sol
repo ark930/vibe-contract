@@ -64,8 +64,6 @@ contract VibeFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(uint => uint) public amountSwap0P;
     // pool index => swap amount of token1
     mapping(uint => uint) public amountSwap1P;
-    // pool index => the swap pool only allow BOT holder to take part in
-    mapping(uint => bool) public onlyBotHolderP;
     // pool index => maximum swap amount1 per wallet, if the value is not set, the default value is zero
     mapping(uint => uint) public maxAmount1PerWalletP;
     // team address => pool index => whether or not creator's pool has been claimed
