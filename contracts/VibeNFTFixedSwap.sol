@@ -59,9 +59,10 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event Canceled(address indexed sender, uint indexed index, uint unswappedAmount0);
     event Swapped(address indexed sender, uint indexed index, uint swappedAmount0, uint swappedAmount1);
 
-    function initialize() public initializer {
+    function initialize(address _royaltyAddress) public initializer {
         super.__Ownable_init();
         super.__ReentrancyGuard_init();
+        royaltyAddress = _royaltyAddress;
     }
 
     function createErc721(
@@ -219,11 +220,6 @@ contract VibeNFTFixedSwap is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             return true;
         }
         return false;
-    }
-
-    function getFeeConfigContract() public view returns (address) {
-        // TODO
-        return address(this);
     }
 
     function getPoolCount() external view returns (uint) {

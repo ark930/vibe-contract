@@ -77,9 +77,10 @@ contract VibeNFTEnglishAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable
     event CreatorClaimed(address indexed sender, uint indexed index, uint tokenId, uint amount0, uint amount1);
     event BidderClaimed(address indexed sender, uint indexed index, uint tokenId, uint amount0, uint amount1);
 
-    function initialize() public initializer {
+    function initialize(address _royaltyAddress) public initializer {
         super.__Ownable_init();
         super.__ReentrancyGuard_init();
+        royaltyAddress = _royaltyAddress;
     }
 
     function createErc721(

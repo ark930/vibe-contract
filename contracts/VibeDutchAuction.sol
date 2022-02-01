@@ -89,9 +89,10 @@ contract VibeDutchAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event Bid(uint indexed index, address indexed sender, uint amount0, uint amount1);
     event Claimed(uint indexed index, address indexed sender, uint unFilledAmount0);
 
-    function initialize() public initializer {
+    function initialize(address _royaltyAddress) public initializer {
         super.__Ownable_init();
         super.__ReentrancyGuard_init();
+        royaltyAddress = _royaltyAddress;
     }
 
     function create(CreateReq memory poolReq) external nonReentrant {
