@@ -1,5 +1,6 @@
 import "dotenv/config";
 import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-etherscan";
 import "hardhat-deploy";
 import "hardhat-gas-reporter";
 
@@ -13,7 +14,15 @@ const accounts = [
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY,
+      ropsten: process.env.ETHERSCAN_API_KEY,
+      rinkeby: process.env.ETHERSCAN_API_KEY,
+      goerli: process.env.ETHERSCAN_API_KEY,
+      kovan: process.env.ETHERSCAN_API_KEY,
+      polygon: process.env.POLYGONSCAN_API_KEY,
+      polygonMumbai: process.env.POLYGONSCAN_API_KEY,
+    }
   },
   gasReporter: {
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
@@ -86,6 +95,14 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["staging"],
       gasMultiplier: 10,
+    },
+    mumbai: {
+      url: "https://rpc-mumbai.maticvigil.com/",
+      accounts,
+      chainId: 80001,
+      live: true,
+      saveDeployments: true,
+      gasMultiplier: 10
     },
     polygon: {
       url: "https://polygon-rpc.com",
